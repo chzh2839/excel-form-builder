@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>엑셀 양식 메이커</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --bg2: #f7f7f5;
+    --bg3: #f0efe9;
+    --text: #1a1a18;
+    --text2: #6b6b66;
+    --text3: #9a9a94;
+    --border: rgba(0,0,0,0.1);
+    --border2: rgba(0,0,0,0.18);
+    --success-bg: #eaf3de;
+    --success-text: #3b6d11;
+    --danger-text: #a32d2d;
+    --danger-bg: #fcebeb;
+    --radius: 8px;
+    --radius-lg: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1e1e1c;
+      --bg2: #282825;
+      --bg3: #323230;
+      --text: #f0efea;
+      --text2: #a8a8a0;
+      --text3: #6e6e68;
+      --border: rgba(255,255,255,0.1);
+      --border2: rgba(255,255,255,0.18);
+      --success-bg: #173404;
+      --success-text: #c0dd97;
+      --danger-text: #f09595;
+      --danger-bg: #501313;
+    }
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+    background: var(--bg3);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+  }
+
+  .app-card {
+    background: var(--bg);
+    border-radius: var(--radius-lg);
+    border: 0.5px solid var(--border);
+    width: 100%;
+    max-width: 1100px;
+    overflow: hidden;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.07);
+  }
+
+  .top-bar {
+    padding: 16px 24px 14px;
+    border-bottom: 0.5px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg);
+  }
+  .top-bar-left { display: flex; align-items: center; gap: 10px; }
+  .logo-icon {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: var(--text); display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+  }
+  .top-bar-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .steps { display: flex; gap: 5px; align-items: center; }
+  .step {
+    font-size: 12px; padding: 3px 12px; border-radius: 99px;
+    border: 0.5px solid var(--border); color: var(--text3);
+    background: var(--bg2); transition: all 0.2s;
+  }
+  .step.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .step.done { background: var(--success-bg); color: var(--success-text); border-color: var(--border); }
+
+  .main-layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    min-height: 600px;
+  }
+
+  .left-panel {
+    border-right: 0.5px solid var(--border);
+    padding: 20px;
+    overflow-y: auto;
+    max-height: 720px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    background: var(--bg);
+  }
+  .right-panel {
+    padding: 20px;
+    overflow: auto;
+    max-height: 720px;
+    background: var(--bg2);
+  }
+
+  .section-label {
+    font-size: 10px; font-weight: 600; color: var(--text3);
+    letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 8px;
+  }
+  .divider { height: 0.5px; background: var(--border); }
+
+  /* API Key */
+  .api-key-wrap { display: flex; gap: 6px; }
+  .api-key-input {
+    flex: 1; padding: 8px 10px; border: 0.5px solid var(--border2);
+    border-radius: var(--radius); font-size: 12px; color: var(--text);
+    background: var(--bg); font-family: monospace;
+  }
+  .api-key-input:focus { outline: none; border-color: var(--text3); }
+  .icon-btn {
+    padding: 8px 10px; border: 0.5px solid var(--border);
+    border-radius: var(--radius); font-size: 11px; color: var(--text2);
+    cursor: pointer; background: var(--bg2); white-space: nowrap; transition: all 0.15s;
+  }
+  .icon-btn:hover { background: var(--bg3); color: var(--text); }
+
+  /* Purpose */
+  .purpose-input {
+    width: 100%; padding: 10px 12px; border: 0.5px solid var(--border2);
+    border-radius: var(--radius); font-size: 13px; color: var(--text);
+    background: var(--bg); resize: none; height: 68px; font-family: inherit;
+  }
+  .purpose-input:focus { outline: none; border-color: var(--text3); }
+  .preset-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+  .preset-chip {
+    font-size: 11px; padding: 4px 9px; border-radius: 99px;
+    border: 0.5px solid var(--border); color: var(--text2);
+    cursor: pointer; background: var(--bg2); transition: all 0.15s;
+  }
+  .preset-chip:hover { border-color: var(--border2); color: var(--text); background: var(--bg); }
+
+  /* Feature 2: Save/Load */
+  .save-load-row { display: flex; gap: 6px; align-items: center; }
+  .save-name-input {
+    flex: 1; padding: 7px 10px; border: 0.5px solid var(--border2);
+    border-radius: var(--radius); font-size: 12px; color: var(--text);
+    background: var(--bg); font-family: inherit; min-width: 0;
+  }
+  .save-name-input:focus { outline: none; border-color: var(--text3); }
+  .save-btn {
+    padding: 7px 12px; border-radius: var(--radius); border: 0.5px solid var(--border2);
+    background: var(--bg2); font-size: 12px; color: var(--text2);
+    cursor: pointer; font-family: inherit; white-space: nowrap; transition: all 0.15s;
+  }
+  .save-btn:hover { background: var(--bg3); color: var(--text); }
+  .saves-list { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  .save-chip {
+    display: flex; align-items: center; font-size: 11px;
+    border-radius: 99px; border: 0.5px solid var(--border);
+    background: var(--bg2); overflow: hidden; transition: border-color 0.15s;
+  }
+  .save-chip:hover { border-color: var(--border2); }
+  .save-chip-label {
+    padding: 4px 8px 4px 10px; color: var(--text2); cursor: pointer;
+    max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .save-chip-label:hover { color: var(--text); }
+  .save-chip-del { padding: 4px 8px 4px 4px; color: var(--text3); cursor: pointer; font-size: 13px; line-height: 1; }
+  .save-chip-del:hover { color: var(--danger-text); }
+  .saves-empty { font-size: 11px; color: var(--text3); padding: 2px 0; }
+
+  .ai-btn {
+    width: 100%; padding: 10px; border-radius: var(--radius);
+    border: none; background: var(--text); color: var(--bg);
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    margin-top: 10px; transition: opacity 0.15s; font-family: inherit;
+  }
+  .ai-btn:hover { opacity: 0.82; }
+  .ai-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .error-msg {
+    font-size: 12px; color: var(--danger-text);
+    margin-top: 7px; padding: 7px 10px;
+    background: var(--danger-bg); border-radius: var(--radius);
+    line-height: 1.5;
+  }
+
+  /* Rec chips */
+  .rec-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+  .rec-chip {
+    font-size: 12px; padding: 5px 10px; border-radius: 99px;
+    border: 0.5px solid var(--border); color: var(--text2);
+    cursor: pointer; background: var(--bg2);
+    display: flex; align-items: center; gap: 5px; transition: all 0.15s;
+  }
+  .rec-chip:hover { border-color: var(--border2); }
+  .rec-chip.selected { background: var(--bg); border-color: var(--border2); color: var(--text); }
+  .chip-check {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 1.5px solid var(--border2);
+    display: flex; align-items: center; justify-content: center; font-size: 8px; flex-shrink: 0;
+  }
+  .rec-chip.selected .chip-check { background: var(--text); border-color: var(--text); color: var(--bg); }
+
+  /* Header list */
+  .header-add-row { display: flex; gap: 6px; margin-top: 8px; }
+  .header-add-input {
+    flex: 1; padding: 8px 10px; border: 0.5px solid var(--border2);
+    border-radius: var(--radius); font-size: 13px; color: var(--text); background: var(--bg); font-family: inherit;
+  }
+  .header-add-input:focus { outline: none; border-color: var(--text3); }
+  .add-btn {
+    padding: 8px 14px; border-radius: var(--radius);
+    border: 0.5px solid var(--border2); background: var(--bg2);
+    font-size: 13px; color: var(--text); cursor: pointer; transition: all 0.15s; font-family: inherit;
+  }
+  .add-btn:hover { background: var(--bg3); }
+
+  .header-list { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+  .header-item {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 9px; border: 0.5px solid var(--border);
+    border-radius: var(--radius); background: var(--bg);
+    transition: border-color 0.15s; cursor: default;
+  }
+  .header-item.dragging { opacity: 0.35; }
+  .header-item.drag-over { border-color: var(--border2); background: var(--bg2); }
+  .drag-handle { color: var(--text3); font-size: 13px; cursor: grab; padding: 0 1px; user-select: none; }
+  .color-dot {
+    width: 13px; height: 13px; border-radius: 50%; flex-shrink: 0;
+    cursor: pointer; border: 2px solid transparent; transition: transform 0.1s;
+  }
+  .color-dot:hover { transform: scale(1.25); }
+  .header-name-input {
+    flex: 1; font-size: 13px; border: none; outline: none;
+    background: transparent; color: var(--text); font-family: inherit; min-width: 0;
+  }
+  .type-select {
+    font-size: 11px; padding: 2px 5px; border: 0.5px solid var(--border);
+    border-radius: 4px; color: var(--text2); background: var(--bg2); cursor: pointer; font-family: inherit;
+  }
+  .del-btn { font-size: 15px; color: var(--text3); cursor: pointer; padding: 0 2px; line-height: 1; flex-shrink: 0; }
+  .del-btn:hover { color: var(--danger-text); }
+
+  .color-picker-wrap {
+    display: flex; gap: 5px; flex-wrap: wrap;
+    padding: 6px 8px; background: var(--bg2); border-radius: var(--radius);
+    border: 0.5px solid var(--border); margin-top: -2px;
+  }
+  .color-swatch {
+    width: 20px; height: 20px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent; transition: transform 0.1s;
+  }
+  .color-swatch:hover { transform: scale(1.2); }
+  .color-swatch.active { border-color: var(--text); }
+
+  /* Feature 1: Dropdown options editor */
+  .options-editor-wrap {
+    padding: 7px 8px; background: var(--bg2); border-radius: var(--radius);
+    border: 0.5px solid var(--border); margin-top: -2px;
+  }
+  .options-editor-header {
+    font-size: 10px; color: var(--text3); margin-bottom: 5px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .options-tag-list { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px; }
+  .options-tag {
+    display: flex; align-items: center; gap: 3px; font-size: 11px;
+    padding: 2px 7px 2px 8px; border-radius: 99px;
+    background: var(--bg); border: 0.5px solid var(--border2); color: var(--text);
+  }
+  .options-tag-del { font-size: 13px; color: var(--text3); cursor: pointer; line-height: 1; padding: 0 1px; }
+  .options-tag-del:hover { color: var(--danger-text); }
+  .options-add-row { display: flex; gap: 5px; }
+  .options-add-input {
+    flex: 1; padding: 5px 8px; border: 0.5px solid var(--border2);
+    border-radius: var(--radius); font-size: 12px; color: var(--text);
+    background: var(--bg); font-family: inherit; min-width: 0;
+  }
+  .options-add-input:focus { outline: none; border-color: var(--text3); }
+  .options-add-btn {
+    padding: 5px 10px; border-radius: var(--radius); border: 0.5px solid var(--border2);
+    background: var(--bg); font-size: 12px; color: var(--text2);
+    cursor: pointer; font-family: inherit; white-space: nowrap; transition: all 0.15s;
+  }
+  .options-add-btn:hover { background: var(--bg3); }
+
+  /* Row count */
+  .row-count-row { display: flex; align-items: center; gap: 10px; }
+  .row-count-row input[type=range] { flex: 1; }
+  .row-count-val { font-size: 13px; font-weight: 600; color: var(--text); min-width: 26px; }
+  .row-count-unit { font-size: 12px; color: var(--text2); }
+
+  /* Feature 4: Checkbox row */
+  .checkbox-row { display: flex; align-items: center; gap: 7px; margin-top: 8px; }
+  .checkbox-row input[type=checkbox] { width: 14px; height: 14px; accent-color: var(--text); cursor: pointer; flex-shrink: 0; }
+  .checkbox-row label { font-size: 12px; color: var(--text2); cursor: pointer; user-select: none; }
+
+  /* Preview */
+  .preview-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;
+  }
+  .preview-label { font-size: 13px; font-weight: 500; color: var(--text2); }
+  .preview-badge {
+    font-size: 11px; padding: 3px 10px; border-radius: 99px;
+    border: 0.5px solid var(--border); background: var(--bg);
+    color: var(--text2);
+  }
+  .preview-badge.has-headers { background: var(--success-bg); color: var(--success-text); }
+
+  .grid-wrap {
+    overflow-x: auto;
+    border: 0.5px solid var(--border2);
+    border-radius: var(--radius-lg);
+    background: var(--bg);
+  }
+  .grid-table { border-collapse: collapse; min-width: 100%; font-size: 12px; }
+  .grid-table th {
+    padding: 9px 14px; text-align: left; font-weight: 500;
+    white-space: nowrap; font-size: 12px;
+    border-right: 0.5px solid rgba(255,255,255,0.25);
+    border-bottom: 0.5px solid var(--border2); color: #fff;
+  }
+  .grid-table th.row-num-th {
+    background: var(--bg3) !important; color: var(--text3); font-size: 10px;
+    border-right: 0.5px solid var(--border2);
+  }
+  .grid-table th:last-child { border-right: none; }
+  .grid-table td {
+    padding: 7px 14px; border-right: 0.5px solid var(--border);
+    border-bottom: 0.5px solid var(--border);
+    color: var(--text2); font-size: 12px; white-space: nowrap;
+  }
+  .grid-table td.row-num {
+    color: var(--text3); text-align: center; font-size: 10px;
+    background: var(--bg2); min-width: 32px; border-right: 0.5px solid var(--border2);
+  }
+  .grid-table td.sample { color: var(--text3); font-style: italic; }
+  .grid-table td:last-child { border-right: none; }
+  .grid-table tr:last-child td { border-bottom: none; }
+
+  .empty-state {
+    text-align: center; padding: 60px 20px; color: var(--text3); font-size: 13px;
+    background: var(--bg); border-radius: var(--radius-lg);
+    border: 0.5px dashed var(--border2);
+  }
+  .empty-icon { font-size: 36px; margin-bottom: 12px; }
+  .empty-title { font-size: 14px; color: var(--text2); font-weight: 500; margin-bottom: 6px; }
+
+  .bottom-actions {
+    margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end; align-items: center;
+  }
+  .header-count-info { font-size: 12px; color: var(--text3); margin-right: auto; }
+
+  /* Feature 3: Filename input */
+  .filename-input {
+    padding: 8px 10px; border: 0.5px solid var(--border2);
+    border-radius: var(--radius); font-size: 12px; color: var(--text);
+    background: var(--bg); font-family: monospace; width: 220px; min-width: 100px;
+  }
+  .filename-input:focus { outline: none; border-color: var(--text3); }
+
+  .reset-btn {
+    padding: 9px 16px; border-radius: var(--radius);
+    border: 0.5px solid var(--border2); background: var(--bg);
+    font-size: 13px; color: var(--text2); cursor: pointer; transition: all 0.15s; font-family: inherit;
+  }
+  .reset-btn:hover { color: var(--text); background: var(--bg2); }
+  .download-btn {
+    padding: 9px 22px; border-radius: var(--radius);
+    border: none; background: var(--text); color: var(--bg);
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; gap: 7px; transition: opacity 0.15s; font-family: inherit;
+  }
+  .download-btn:hover { opacity: 0.82; }
+  .download-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .loading-dots { display: inline-flex; gap: 3px; }
+  .loading-dots span {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: currentColor; animation: blink 1.2s infinite;
+  }
+  .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
+  .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes blink { 0%,80%,100%{opacity:0.15} 40%{opacity:1} }
+
+  input[type=range] {
+    -webkit-appearance: none; appearance: none;
+    height: 4px; background: var(--border2); border-radius: 2px; outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--text); cursor: pointer; border: 2px solid var(--bg);
+    box-shadow: 0 0 0 1px var(--border2);
+  }
+  input[type=range]::-moz-range-thumb {
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--text); cursor: pointer; border: 2px solid var(--bg);
+  }
+
+  select { font-family: inherit; }
+  button { font-family: inherit; }
+
+  @media (max-width: 720px) {
+    .main-layout { grid-template-columns: 1fr; }
+    .left-panel { max-height: none; border-right: none; border-bottom: 0.5px solid var(--border); }
+    .right-panel { max-height: none; }
+    .steps { display: none; }
+    .filename-input { width: 100%; }
+    .bottom-actions { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app-card">
+  <div class="top-bar">
+    <div class="top-bar-left">
+      <div class="logo-icon">📋</div>
+      <span class="top-bar-title">엑셀 양식 메이커</span>
+    </div>
+    <div class="steps">
+      <span class="step active" id="step1-badge">1 용도 입력</span>
+      <span class="step" id="step2-badge">2 헤더 구성</span>
+      <span class="step" id="step3-badge">3 다운로드</span>
+    </div>
+  </div>
+
+  <div class="main-layout">
+    <!-- LEFT PANEL -->
+    <div class="left-panel">
+
+      <!-- API Key -->
+      <div>
+        <div class="section-label">Gemini API 키</div>
+        <div class="api-key-wrap">
+          <input class="api-key-input" id="apiKey" type="password" placeholder="AIza... 로 시작하는 키 입력" autocomplete="off" />
+          <button class="icon-btn" id="toggleKeyBtn" onclick="toggleKey()">표시</button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Feature 2: Save/Load -->
+      <div>
+        <div class="section-label">양식 저장 / 불러오기</div>
+        <div class="save-load-row">
+          <input class="save-name-input" id="saveNameInput" placeholder="저장 이름 (선택)..." maxlength="30" />
+          <button class="save-btn" onclick="saveForm()">💾 저장</button>
+        </div>
+        <div class="saves-list" id="savesList"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Purpose -->
+      <div>
+        <div class="section-label">양식 용도</div>
+        <textarea class="purpose-input" id="purposeInput"
+          placeholder="예) 중고물품 거래 내역 장부, 직원 근태 관리표..."
+          oninput="updateDefaultFilename()"></textarea>
+        <div class="preset-chips" id="presetChips"></div>
+        <button class="ai-btn" id="aiBtn" onclick="getAISuggestions()">
+          <span id="aiBtnText">✦ AI 헤더 추천 받기</span>
+        </button>
+        <div id="aiError"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Header Section -->
+      <div>
+        <div class="section-label">
+          헤더 구성
+          <span style="font-size:11px;font-weight:400;text-transform:none;color:var(--text3);" id="headerCount"></span>
+        </div>
+        <div class="rec-chips" id="recChips"></div>
+        <div class="header-add-row">
+          <input class="header-add-input" id="headerInput" placeholder="헤더명 직접 입력..." onkeydown="if(event.key==='Enter')addHeader()" />
+          <button class="add-btn" onclick="addHeader()">+ 추가</button>
+        </div>
+        <div class="header-list" id="headerList"></div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Row count -->
+      <div>
+        <div class="section-label">빈 행 수</div>
+        <div class="row-count-row">
+          <input type="range" min="5" max="200" step="5" value="20" id="rowCount"
+            oninput="document.getElementById('rowCountVal').textContent=this.value; renderPreview();" />
+          <span class="row-count-val" id="rowCountVal">20</span>
+          <span class="row-count-unit">행</span>
+        </div>
+        <!-- Feature 4: Freeze header row -->
+        <div class="checkbox-row">
+          <input type="checkbox" id="freezeHeaderChk" checked onchange="freezeHeader = this.checked;" />
+          <label for="freezeHeaderChk">헤더 행 틀 고정</label>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right-panel">
+      <div class="preview-header">
+        <span class="preview-label">미리보기</span>
+        <span class="preview-badge" id="previewBadge">헤더 없음</span>
+      </div>
+      <div id="previewArea"></div>
+      <div class="bottom-actions">
+        <span class="header-count-info" id="headerCountInfo"></span>
+        <!-- Feature 3: Filename customization -->
+        <input class="filename-input" id="filenameInput" placeholder="파일명..." title="다운로드 파일명 (.xlsx 자동 추가)" />
+        <button class="reset-btn" onclick="resetAll()">초기화</button>
+        <button class="download-btn" id="downloadBtn" disabled onclick="downloadExcel()">
+          ⬇ 엑셀 다운로드 (.xlsx)
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const PRESETS = [
+  { label: '중고거래 장부', purpose: '중고물품 거래 내역 장부' },
+  { label: '월별 가계부', purpose: '월별 가계부' },
+  { label: '재고 관리대장', purpose: '재고 관리대장' },
+  { label: '직원 근태 관리', purpose: '직원 근태 관리' },
+  { label: '프로젝트 일정표', purpose: '프로젝트 일정표' },
+  { label: '고객 주문 내역', purpose: '고객 주문 내역' },
+  { label: '업무 일지', purpose: '업무 일지' },
+  { label: '지출 결의서', purpose: '지출 결의서' },
+  { label: '견적서', purpose: '견적서' },
+  { label: '회의록', purpose: '회의록' },
+];
+
+const COLORS = [
+  '#4A7DE8','#2E9E6B','#E8834A','#9B6DE8','#E84A6F',
+  '#1AA3C4','#CBA020','#5D8A3C','#C45A8A','#777777'
+];
+
+const SAMPLE_DATA = {
+  '번호': ['1','2','3'],
+  '날짜': ['2025-01-01','2025-01-02','2025-01-03'],
+  '이름': ['홍길동','김철수','이영희'],
+  '성명': ['홍길동','김철수','이영희'],
+  '품목': ['상품 A','상품 B','상품 C'],
+  '물품명': ['노트북','스마트폰','태블릿'],
+  '수량': ['1','3','2'],
+  '단가': ['50,000','30,000','80,000'],
+  '금액': ['50,000','90,000','160,000'],
+  '매입금액': ['30,000','60,000','120,000'],
+  '매출금액': ['50,000','90,000','160,000'],
+  '순이익': ['20,000','30,000','40,000'],
+  '내용': ['내용 A','내용 B','내용 C'],
+  '비고': ['','메모',''],
+  '담당자': ['김담당','이담당','박담당'],
+  '부서': ['영업팀','개발팀','기획팀'],
+  '상태': ['완료','진행중','대기'],
+  '분류': ['식비','교통비','업무비'],
+  '카테고리': ['A','B','A'],
+  '거래처': ['ABC마트','XYZ상사','DEF마트'],
+};
+
+// Feature 2: Save/Load constants
+const SAVE_KEY = 'excel-form-saves';
+const MAX_SAVES = 10;
+
+let headers = [];
+let recHeaders = [];
+let dragSrcIdx = null;
+let openColorIdx = null;
+let openOptionsIdx = null;   // Feature 1: index of expanded options editor
+let freezeHeader = true;     // Feature 4: freeze first row by default
+
+function init() {
+  const chips = document.getElementById('presetChips');
+  PRESETS.forEach(p => {
+    const btn = document.createElement('button');
+    btn.className = 'preset-chip';
+    btn.textContent = p.label;
+    btn.onclick = () => {
+      document.getElementById('purposeInput').value = p.purpose;
+      updateDefaultFilename();
+    };
+    chips.appendChild(btn);
+  });
+  renderSaveList();
+  updateDefaultFilename();
+  renderHeaderList();
+  renderPreview();
+}
+
+function toggleKey() {
+  const inp = document.getElementById('apiKey');
+  const btn = document.getElementById('toggleKeyBtn');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '표시' : '숨기기';
+}
+
+async function getAISuggestions() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const purpose = document.getElementById('purposeInput').value.trim();
+  const errEl = document.getElementById('aiError');
+  errEl.innerHTML = '';
+
+  if (!apiKey) {
+    errEl.innerHTML = '<div class="error-msg">⚠ API 키를 먼저 입력해주세요.</div>';
+    return;
+  }
+  if (!purpose) {
+    errEl.innerHTML = '<div class="error-msg">⚠ 양식 용도를 입력해주세요.</div>';
+    return;
+  }
+
+  const btn = document.getElementById('aiBtn');
+  btn.disabled = true;
+  document.getElementById('aiBtnText').innerHTML =
+    '<span class="loading-dots"><span></span><span></span><span></span></span>&nbsp;AI가 추천 중...';
+
+  const prompt = `당신은 엑셀 양식 설계 전문가입니다.
+"${purpose}" 용도의 엑셀 양식에 필요한 헤더(열 이름)를 추천해주세요.
+반드시 아래 JSON 형식으로만 응답하세요. 설명, 마크다운 코드블록, 다른 텍스트는 절대 포함하지 마세요.
+{"headers": ["헤더1", "헤더2", "헤더3", ...]}
+조건:
+- 7~10개 헤더
+- 한국어 헤더명
+- 해당 용도에서 실제로 자주 사용하는 필드들
+- 너무 일반적인 것(번호, 비고)보다 용도에 특화된 것 위주로`;
+
+  try {
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { temperature: 0.7, maxOutputTokens: 512 }
+        })
+      }
+    );
+
+    const data = await res.json();
+    if (!res.ok || data.error) {
+      throw new Error(data.error?.message || `API 오류 (${res.status})`);
+    }
+
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('응답 형식이 올바르지 않습니다. 다시 시도해주세요.');
+
+    const parsed = JSON.parse(match[0]);
+    recHeaders = Array.isArray(parsed.headers) ? parsed.headers : [];
+    if (recHeaders.length === 0) throw new Error('추천 헤더가 없습니다. 다시 시도해주세요.');
+
+    renderRecChips();
+    updateSteps();
+  } catch (e) {
+    let msg = e.message;
+    if (msg.includes('API_KEY_INVALID') || msg.includes('INVALID_ARGUMENT')) {
+      msg = 'API 키가 유효하지 않습니다.<br>→ <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:inherit">aistudio.google.com</a> 에서 발급한 키를 사용하세요. (Google Cloud Console 키와 다릅니다)';
+    } else if (msg.includes('RESOURCE_EXHAUSTED') || msg.includes('quota') || msg.includes('429')) {
+      msg = '무료 일일 한도(1,500회)를 초과했습니다.<br>→ 내일 자정(태평양 시간 기준) 이후 초기화됩니다. 또는 새 API 키를 발급하세요.';
+    } else if (msg.includes('not found') || msg.includes('404') || msg.includes('NOT_FOUND')) {
+      msg = '모델을 찾을 수 없습니다.<br>→ API 키가 <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:inherit">Google AI Studio</a>에서 발급된 키인지 확인하세요. (Vertex AI / GCP 프로젝트 키는 별도 설정 필요)';
+    } else if (msg.includes('403') || msg.includes('PERMISSION_DENIED')) {
+      msg = 'API 키 권한이 없습니다.<br>→ <a href="https://aistudio.google.com/app/apikey" target="_blank" style="color:inherit">Google AI Studio</a>에서 직접 발급한 키를 사용하세요.';
+    }
+    errEl.innerHTML = `<div class="error-msg">⚠ ${msg}</div>`;
+  } finally {
+    btn.disabled = false;
+    document.getElementById('aiBtnText').textContent = '✦ AI 헤더 추천 받기';
+  }
+}
+
+function renderRecChips() {
+  const wrap = document.getElementById('recChips');
+  wrap.innerHTML = '';
+  if (recHeaders.length === 0) return;
+
+  recHeaders.forEach(h => {
+    const selected = !!headers.find(x => x.name === h);
+    const chip = document.createElement('div');
+    chip.className = 'rec-chip' + (selected ? ' selected' : '');
+    chip.innerHTML = `<span class="chip-check">${selected ? '✓' : ''}</span>${h}`;
+    chip.onclick = () => {
+      if (headers.find(x => x.name === h)) {
+        headers = headers.filter(x => x.name !== h);
+      } else {
+        if (headers.length >= 20) return;
+        headers.push({ name: h, type: '텍스트', color: COLORS[headers.length % COLORS.length], options: [] });
+      }
+      renderRecChips();
+      renderHeaderList();
+      renderPreview();
+    };
+    wrap.appendChild(chip);
+  });
+}
+
+function addHeader() {
+  const inp = document.getElementById('headerInput');
+  const name = inp.value.trim();
+  if (!name) return;
+  if (headers.find(h => h.name === name)) {
+    inp.value = '';
+    return;
+  }
+  if (headers.length >= 20) return;
+  headers.push({ name, type: '텍스트', color: COLORS[headers.length % COLORS.length], options: [] });
+  inp.value = '';
+  renderRecChips();
+  renderHeaderList();
+  renderPreview();
+}
+
+function renderHeaderList() {
+  const list = document.getElementById('headerList');
+  list.innerHTML = '';
+  document.getElementById('headerCount').textContent = headers.length > 0 ? `(${headers.length}/20)` : '';
+
+  headers.forEach((h, i) => {
+    const item = document.createElement('div');
+    item.className = 'header-item';
+    item.draggable = true;
+    item.dataset.idx = i;
+
+    item.addEventListener('dragstart', () => { dragSrcIdx = i; item.classList.add('dragging'); });
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      document.querySelectorAll('.header-item').forEach(el => el.classList.remove('drag-over'));
+    });
+    item.addEventListener('dragover', e => { e.preventDefault(); item.classList.add('drag-over'); });
+    item.addEventListener('dragleave', () => item.classList.remove('drag-over'));
+    item.addEventListener('drop', e => {
+      e.preventDefault();
+      if (dragSrcIdx === null || dragSrcIdx === i) return;
+      const moved = headers.splice(dragSrcIdx, 1)[0];
+      headers.splice(i, 0, moved);
+      openColorIdx = null;
+      openOptionsIdx = null;
+      renderRecChips();
+      renderHeaderList();
+      renderPreview();
+    });
+
+    const handle = document.createElement('span');
+    handle.className = 'drag-handle';
+    handle.innerHTML = '&#8943;';
+    handle.title = '드래그하여 순서 변경';
+
+    const colorDot = document.createElement('div');
+    colorDot.className = 'color-dot';
+    colorDot.style.background = h.color;
+    colorDot.title = '색상 변경';
+    colorDot.onclick = (e) => {
+      e.stopPropagation();
+      openColorIdx = openColorIdx === i ? null : i;
+      openOptionsIdx = null;
+      renderHeaderList();
+    };
+
+    const nameInp = document.createElement('input');
+    nameInp.className = 'header-name-input';
+    nameInp.value = h.name;
+    nameInp.title = '클릭하여 헤더명 수정';
+    nameInp.onchange = () => {
+      const newName = nameInp.value.trim();
+      if (newName) { headers[i].name = newName; renderRecChips(); renderPreview(); }
+    };
+
+    const typeSelect = document.createElement('select');
+    typeSelect.className = 'type-select';
+    ['텍스트', '숫자', '날짜', '선택'].forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      if (t === h.type) opt.selected = true;
+      typeSelect.appendChild(opt);
+    });
+    typeSelect.onchange = () => {
+      headers[i].type = typeSelect.value;
+      if (typeSelect.value !== '선택') {
+        openOptionsIdx = null;
+      }
+      renderHeaderList();
+      renderPreview();
+    };
+
+    const delBtn = document.createElement('span');
+    delBtn.className = 'del-btn';
+    delBtn.textContent = '×';
+    delBtn.title = '헤더 삭제';
+    delBtn.onclick = () => {
+      headers.splice(i, 1);
+      if (openColorIdx === i) openColorIdx = null;
+      if (openOptionsIdx === i) openOptionsIdx = null;
+      renderRecChips();
+      renderHeaderList();
+      renderPreview();
+    };
+
+    item.appendChild(handle);
+    item.appendChild(colorDot);
+    item.appendChild(nameInp);
+    item.appendChild(typeSelect);
+
+    // Feature 1: options button for '선택' type
+    if (h.type === '선택') {
+      const optBtn = document.createElement('span');
+      optBtn.className = 'icon-btn';
+      optBtn.style.cssText = 'font-size:11px;padding:3px 7px;flex-shrink:0;';
+      optBtn.title = '드롭다운 옵션 편집';
+      const optCount = (h.options && h.options.length > 0) ? h.options.length : 0;
+      optBtn.textContent = optCount > 0 ? `≡${optCount}` : '≡';
+      if (openOptionsIdx === i) optBtn.style.background = 'var(--bg3)';
+      optBtn.onclick = (e) => {
+        e.stopPropagation();
+        openOptionsIdx = openOptionsIdx === i ? null : i;
+        openColorIdx = null;
+        renderHeaderList();
+      };
+      item.appendChild(optBtn);
+    }
+
+    item.appendChild(delBtn);
+    list.appendChild(item);
+
+    // Color picker
+    if (openColorIdx === i) {
+      const picker = document.createElement('div');
+      picker.className = 'color-picker-wrap';
+      COLORS.forEach(c => {
+        const sw = document.createElement('div');
+        sw.className = 'color-swatch' + (h.color === c ? ' active' : '');
+        sw.style.background = c;
+        sw.onclick = () => {
+          headers[i].color = c;
+          openColorIdx = null;
+          renderHeaderList();
+          renderPreview();
+        };
+        picker.appendChild(sw);
+      });
+      list.appendChild(picker);
+    }
+
+    // Feature 1: Options editor
+    if (openOptionsIdx === i) {
+      const editor = document.createElement('div');
+      editor.className = 'options-editor-wrap';
+
+      const editorHeader = document.createElement('div');
+      editorHeader.className = 'options-editor-header';
+      editorHeader.innerHTML = '<span>드롭다운 옵션</span><span>최대 50개</span>';
+      editor.appendChild(editorHeader);
+
+      const tagList = document.createElement('div');
+      tagList.className = 'options-tag-list';
+      (h.options || []).forEach((opt, oi) => {
+        const tag = document.createElement('div');
+        tag.className = 'options-tag';
+        const label = document.createElement('span');
+        label.textContent = opt;
+        const tagDel = document.createElement('span');
+        tagDel.className = 'options-tag-del';
+        tagDel.textContent = '×';
+        tagDel.onclick = () => {
+          headers[i].options.splice(oi, 1);
+          renderHeaderList();
+          renderPreview();
+        };
+        tag.appendChild(label);
+        tag.appendChild(tagDel);
+        tagList.appendChild(tag);
+      });
+      editor.appendChild(tagList);
+
+      const addRow = document.createElement('div');
+      addRow.className = 'options-add-row';
+      const addInput = document.createElement('input');
+      addInput.className = 'options-add-input';
+      addInput.placeholder = '옵션 값 입력...';
+
+      function doAddOption() {
+        const val = addInput.value.trim();
+        if (!val) return;
+        if (!headers[i].options) headers[i].options = [];
+        if (headers[i].options.length >= 50) return;
+        if (headers[i].options.includes(val)) { addInput.value = ''; return; }
+        headers[i].options.push(val);
+        addInput.value = '';
+        renderHeaderList();
+        renderPreview();
+        // Re-focus the input after re-render
+        setTimeout(() => {
+          const inputs = document.querySelectorAll('.options-add-input');
+          if (inputs.length > 0) inputs[0].focus();
+        }, 0);
+      }
+
+      addInput.onkeydown = (e) => { if (e.key === 'Enter') doAddOption(); };
+      const addBtn = document.createElement('button');
+      addBtn.className = 'options-add-btn';
+      addBtn.textContent = '+ 추가';
+      addBtn.onclick = doAddOption;
+      addRow.appendChild(addInput);
+      addRow.appendChild(addBtn);
+      editor.appendChild(addRow);
+
+      list.appendChild(editor);
+    }
+  });
+}
+
+function getSampleValue(name) {
+  const key = Object.keys(SAMPLE_DATA).find(k =>
+    name.includes(k) || k.includes(name) || name === k
+  );
+  return key ? SAMPLE_DATA[key] : null;
+}
+
+function renderPreview() {
+  const area = document.getElementById('previewArea');
+  const rowCount = parseInt(document.getElementById('rowCount').value);
+  const badge = document.getElementById('previewBadge');
+  const dlBtn = document.getElementById('downloadBtn');
+  const infoEl = document.getElementById('headerCountInfo');
+
+  if (headers.length === 0) {
+    badge.textContent = '헤더 없음';
+    badge.className = 'preview-badge';
+    dlBtn.disabled = true;
+    infoEl.textContent = '';
+    area.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">📋</div>
+        <div class="empty-title">아직 헤더가 없습니다</div>
+        <div>AI 추천을 받거나 헤더를 직접 추가해보세요</div>
+      </div>`;
+    updateSteps();
+    return;
+  }
+
+  badge.textContent = `${headers.length}개 헤더 · ${rowCount}행`;
+  badge.className = 'preview-badge has-headers';
+  dlBtn.disabled = false;
+  infoEl.textContent = `헤더 ${headers.length}개 · 빈 행 ${rowCount}개`;
+
+  let html = '<div class="grid-wrap"><table class="grid-table"><thead><tr>';
+  html += '<th class="row-num-th">#</th>';
+  headers.forEach(h => {
+    html += `<th style="background:${h.color};">${h.name}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  const SAMPLE_ROWS = 3;
+  for (let r = 0; r < rowCount; r++) {
+    html += '<tr>';
+    html += `<td class="row-num">${r + 1}</td>`;
+    headers.forEach(h => {
+      if (r < SAMPLE_ROWS) {
+        let val = '';
+        // Feature 1: show options as sample for '선택' type
+        if (h.type === '선택' && h.options && h.options.length > 0) {
+          val = h.options[r % h.options.length];
+        } else {
+          const vals = getSampleValue(h.name);
+          val = vals ? (vals[r] || '') : '';
+        }
+        html += `<td class="${val ? 'sample' : ''}">${val}</td>`;
+      } else {
+        html += '<td></td>';
+      }
+    });
+    html += '</tr>';
+  }
+  html += '</tbody></table></div>';
+  area.innerHTML = html;
+  updateSteps();
+}
+
+function updateSteps() {
+  const purpose = document.getElementById('purposeInput').value.trim();
+  const s1 = document.getElementById('step1-badge');
+  const s2 = document.getElementById('step2-badge');
+  const s3 = document.getElementById('step3-badge');
+
+  s1.className = 'step ' + (purpose ? 'done' : 'active');
+  s2.className = 'step ' + (headers.length > 0 ? 'done' : (recHeaders.length > 0 ? 'active' : ''));
+  s3.className = 'step ' + (headers.length > 0 ? 'active' : '');
+}
+
+function getNumFmt(type) {
+  if (type === '숫자') return '#,##0';
+  if (type === '날짜') return 'yyyy-mm-dd';
+  return null;
+}
+
+function getHintText(h) {
+  if (h.type === '숫자') return '▸ 숫자  예) 1,000';
+  if (h.type === '날짜') return '▸ 날짜  예) 2025-01-15';
+  if (h.type === '선택') {
+    if (h.options && h.options.length > 0) {
+      const preview = h.options.slice(0, 3).join(' / ');
+      return '▸ 선택  ' + preview + (h.options.length > 3 ? ' …' : '');
+    }
+    return '▸ 목록에서 선택';
+  }
+  return '▸ 텍스트';
+}
+
+function downloadExcel() {
+  if (headers.length === 0) return;
+
+  const rowCount = parseInt(document.getElementById('rowCount').value);
+  const purpose = document.getElementById('purposeInput').value.trim() || '양식';
+
+  const wb = XLSX.utils.book_new();
+  // Row 0: 헤더, Row 1: 안내 행, Row 2~: 데이터
+  const wsData = [
+    headers.map(h => h.name),
+    headers.map(h => getHintText(h)),
+  ];
+  for (let i = 0; i < rowCount; i++) {
+    wsData.push(headers.map(() => ''));
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  ws['!cols'] = headers.map(h => ({ wch: Math.max(h.name.length * 2.5 + 4, 14) }));
+
+  // Row heights: 헤더 24px, 안내 행 16px
+  ws['!rows'] = [{ hpx: 24 }, { hpx: 16 }];
+
+  // Feature 4: Freeze panes — 헤더 + 안내 행 함께 고정
+  if (freezeHeader) {
+    ws['!freeze'] = { xSplit: 0, ySplit: 2 };
+  }
+
+  // Style header cells (row 0)
+  headers.forEach((h, ci) => {
+    const cellRef = XLSX.utils.encode_cell({ r: 0, c: ci });
+    if (!ws[cellRef]) ws[cellRef] = {};
+    const hexColor = h.color.replace('#', '');
+    ws[cellRef].s = {
+      font: { bold: true, color: { rgb: 'FFFFFF' }, name: 'Arial', sz: 11 },
+      fill: { fgColor: { rgb: hexColor } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border: {
+        right: { style: 'thin', color: { rgb: 'FFFFFF' } },
+        bottom: { style: 'thin', color: { rgb: 'CCCCCC' } }
+      }
+    };
+  });
+
+  // Style hint row cells (row 1)
+  headers.forEach((h, ci) => {
+    const cellRef = XLSX.utils.encode_cell({ r: 1, c: ci });
+    if (!ws[cellRef]) ws[cellRef] = {};
+    ws[cellRef].s = {
+      font: { name: 'Arial', sz: 9, italic: true, color: { rgb: '888888' } },
+      fill: { fgColor: { rgb: 'F5F5F5' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border: {
+        right: { style: 'thin', color: { rgb: 'E0E0E0' } },
+        bottom: { style: 'medium', color: { rgb: 'BBBBBB' } }
+      }
+    };
+  });
+
+  // Style data cells (row 2~)
+  for (let r = 2; r <= rowCount + 1; r++) {
+    for (let c = 0; c < headers.length; c++) {
+      const cellRef = XLSX.utils.encode_cell({ r, c });
+      if (!ws[cellRef]) ws[cellRef] = { v: '', t: 's' };
+      const numFmt = getNumFmt(headers[c].type);
+      ws[cellRef].s = {
+        font: { name: 'Arial', sz: 10 },
+        border: {
+          right: { style: 'thin', color: { rgb: 'E0E0E0' } },
+          bottom: { style: 'thin', color: { rgb: 'E0E0E0' } }
+        },
+        alignment: { vertical: 'center' },
+        ...(numFmt ? { numFmt } : {})
+      };
+    }
+  }
+
+  // Data validations — 데이터 행은 row 3(index 2)부터
+  headers.forEach((h, ci) => {
+    if (!ws['!dataValidations']) ws['!dataValidations'] = [];
+    const colLetter = XLSX.utils.encode_col(ci);
+    const sqref = `${colLetter}3:${colLetter}${rowCount + 2}`;
+
+    if (h.type === '선택' && h.options && h.options.length > 0) {
+      const formula = h.options.map(o => o.replace(/,/g, '，')).join(',');
+      if (formula.length > 255) return;
+      ws['!dataValidations'].push({
+        type: 'list',
+        sqref,
+        formula1: `"${formula}"`,
+        showDropDown: false,
+        showInputMessage: true,
+        promptTitle: h.name,
+        prompt: `목록에서 선택하세요:\n${h.options.join(', ')}`,
+        showErrorMessage: true,
+        errorStyle: 'stop',
+        errorTitle: '입력 오류',
+        error: `목록에 있는 값만 입력할 수 있습니다.\n(${h.options.join(', ')})`
+      });
+    } else if (h.type === '숫자') {
+      ws['!dataValidations'].push({
+        type: 'decimal',
+        operator: 'greaterThanOrEqual',
+        formula1: '0',
+        sqref,
+        showInputMessage: true,
+        promptTitle: h.name,
+        prompt: '숫자를 입력하세요.',
+        showErrorMessage: true,
+        errorStyle: 'warning',
+        errorTitle: '입력 형식 확인',
+        error: '숫자 형식으로 입력해주세요.\n예) 1000, 3.14'
+      });
+    } else if (h.type === '날짜') {
+      ws['!dataValidations'].push({
+        type: 'date',
+        operator: 'greaterThan',
+        formula1: '1900-01-01',
+        sqref,
+        showInputMessage: true,
+        promptTitle: h.name,
+        prompt: '날짜를 입력하세요.\n예) 2025-01-15',
+        showErrorMessage: true,
+        errorStyle: 'warning',
+        errorTitle: '입력 형식 확인',
+        error: '날짜 형식으로 입력해주세요.\n예) 2025-01-15'
+      });
+    }
+  });
+
+  const sheetName = purpose.slice(0, 31);
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+  // Feature 3: Custom filename
+  let filename = document.getElementById('filenameInput').value.trim();
+  if (!filename) filename = getDefaultFilename();
+  filename = filename.replace(/[\/\\:*?"<>|]/g, '_').slice(0, 200);
+  if (!filename.toLowerCase().endsWith('.xlsx')) filename += '.xlsx';
+  XLSX.writeFile(wb, filename);
+}
+
+function resetAll() {
+  if (headers.length === 0 && !document.getElementById('purposeInput').value) return;
+  if (!confirm('모든 설정을 초기화할까요?')) return;
+
+  headers = [];
+  recHeaders = [];
+  openColorIdx = null;
+  openOptionsIdx = null;
+  freezeHeader = true;
+
+  document.getElementById('purposeInput').value = '';
+  document.getElementById('headerInput').value = '';
+  document.getElementById('recChips').innerHTML = '';
+  document.getElementById('aiError').innerHTML = '';
+  document.getElementById('rowCount').value = 20;
+  document.getElementById('rowCountVal').textContent = '20';
+  document.getElementById('filenameInput').value = '';
+  document.getElementById('freezeHeaderChk').checked = true;
+
+  renderHeaderList();
+  renderPreview();
+
+  ['step1-badge','step2-badge','step3-badge'].forEach((id, i) => {
+    document.getElementById(id).className = 'step' + (i === 0 ? ' active' : '');
+  });
+}
+
+// ── Feature 2: Save / Load ──────────────────────────────────────────────────
+
+function getSaves() {
+  try {
+    return JSON.parse(localStorage.getItem(SAVE_KEY) || '[]');
+  } catch { return []; }
+}
+
+function saveForm() {
+  if (headers.length === 0) {
+    alert('저장할 헤더가 없습니다. 헤더를 먼저 추가해주세요.');
+    return;
+  }
+  const saves = getSaves();
+  if (saves.length >= MAX_SAVES) {
+    alert(`최대 ${MAX_SAVES}개까지 저장할 수 있습니다. 기존 저장을 먼저 삭제해주세요.`);
+    return;
+  }
+  const nameInput = document.getElementById('saveNameInput');
+  const purpose = document.getElementById('purposeInput').value.trim();
+  const name = nameInput.value.trim() || purpose || '이름 없는 양식';
+  const rowCount = parseInt(document.getElementById('rowCount').value);
+
+  const entry = {
+    id: Date.now().toString(),
+    name,
+    savedAt: new Date().toISOString(),
+    purpose,
+    rowCount,
+    headers: JSON.parse(JSON.stringify(headers)),
+    freezeHeader
+  };
+
+  saves.push(entry);
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(saves));
+  } catch (e) {
+    alert('저장에 실패했습니다. 브라우저 저장 공간을 확인해주세요.');
+    return;
+  }
+  nameInput.value = '';
+  renderSaveList();
+}
+
+function loadForm(id) {
+  const saves = getSaves();
+  const entry = saves.find(s => s.id === id);
+  if (!entry) return;
+  if (headers.length > 0 && !confirm('현재 작업 내용이 사라집니다. 불러올까요?')) return;
+
+  headers = entry.headers.map(h => ({
+    name: h.name,
+    type: h.type || '텍스트',
+    color: h.color || COLORS[0],
+    options: h.options || []
+  }));
+
+  document.getElementById('purposeInput').value = entry.purpose || '';
+  document.getElementById('rowCount').value = entry.rowCount || 20;
+  document.getElementById('rowCountVal').textContent = entry.rowCount || 20;
+
+  if (typeof entry.freezeHeader === 'boolean') {
+    freezeHeader = entry.freezeHeader;
+    document.getElementById('freezeHeaderChk').checked = freezeHeader;
+  }
+
+  openColorIdx = null;
+  openOptionsIdx = null;
+  recHeaders = [];
+  document.getElementById('recChips').innerHTML = '';
+  document.getElementById('aiError').innerHTML = '';
+
+  updateDefaultFilename();
+  renderHeaderList();
+  renderPreview();
+  updateSteps();
+}
+
+function deleteSave(id) {
+  let saves = getSaves().filter(s => s.id !== id);
+  try {
+    localStorage.setItem(SAVE_KEY, JSON.stringify(saves));
+  } catch (e) { /* ignore */ }
+  renderSaveList();
+}
+
+function renderSaveList() {
+  const wrap = document.getElementById('savesList');
+  const saves = getSaves();
+  wrap.innerHTML = '';
+
+  if (saves.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'saves-empty';
+    empty.textContent = '저장된 양식 없음';
+    wrap.appendChild(empty);
+    return;
+  }
+
+  saves.forEach(s => {
+    const chip = document.createElement('div');
+    chip.className = 'save-chip';
+    chip.title = `${s.name}\n저장: ${new Date(s.savedAt).toLocaleDateString('ko-KR')}\n헤더 ${s.headers.length}개`;
+
+    const label = document.createElement('span');
+    label.className = 'save-chip-label';
+    label.textContent = s.name;
+    label.onclick = () => loadForm(s.id);
+
+    const del = document.createElement('span');
+    del.className = 'save-chip-del';
+    del.textContent = '×';
+    del.title = '삭제';
+    del.onclick = (e) => {
+      e.stopPropagation();
+      deleteSave(s.id);
+    };
+
+    chip.appendChild(label);
+    chip.appendChild(del);
+    wrap.appendChild(chip);
+  });
+}
+
+// ── Feature 3: Filename customization ──────────────────────────────────────
+
+function getDefaultFilename() {
+  const purpose = document.getElementById('purposeInput').value.trim() || '양식';
+  const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  return `${purpose}_양식_${today}`;
+}
+
+function updateDefaultFilename() {
+  const inp = document.getElementById('filenameInput');
+  if (!inp.value || inp.value.includes('_양식_')) {
+    inp.value = getDefaultFilename();
+  }
+}
+
+init();
+</script>
+</body>
+</html>
